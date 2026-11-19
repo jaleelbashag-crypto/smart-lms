@@ -9,6 +9,25 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
+// PASSWORD HASHING HELPER (Stores secure salted hashes instead of plain text)
+function hashPassword(plainPassword) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(plainPassword, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(plainPassword, storedPassword) {
+  if (!storedPassword || !storedPassword.includes(":")) {
+    return plainPassword === storedPassword;
+  }
+  const [salt, originalHash] = storedPassword.split(":");
+  const verifyHash = crypto.scryptSync(plainPassword, salt, 64).toString("hex");
+  return crypto.timingSafeEqual(
+    Buffer.from(originalHash, "hex"),
+    Buffer.from(verifyHash, "hex")
+  );
+}
+
 // 1. REAL SQL DATABASE (SQLite file: educore.db)
 const db = new sqlite3.Database("./educore.db");
 
@@ -32,88 +51,96 @@ db.serialize(() => {
       const stmt = db.prepare(
         "INSERT INTO users (name, email, password, role, department, course, status, attended, totalClasses) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
       );
-      stmt.run("System Admin", "admin@educore.edu", "Admin@123", "admin", "Administration", "", "Approved", 0, 0);
-      stmt.run("Prof. Rajesh Kumar", "trainer@educore.edu", "Trainer@123", "trainer", "Full-Stack Web Development", "", "Approved", 0, 0);
-      stmt.run("Priya Nair", "student@educore.edu", "Student@123", "student", "", "Full-Stack Web Development", "Approved", 18, 20);
+      stmt.run("System Admin", "admin@educore.edu", hashPassword("Admin@123"), "admin", "Administration", "", "Approved", 0, 0);
+      stmt.run("Prof. Rajesh Kumar", "trainer@educore.edu", hashPassword("Trainer@123"), "trainer", "Full-Stack Web Development", "", "Approved", 0, 0);
+      stmt.run("Priya Nair", "student@educore.edu", hashPassword("Student@123"), "student", "", "Full-Stack Web Development", "Approved", 18, 20);
       stmt.finalize();
     }
   });
 });
 
-// 2. AUTOMATIC SMTP TRANSPORTER (Works immediately with zero manual setup!)
-let transporterPromise = nodemailer.createTestAccount().then((testAccount) => {
-  console.log("SMTP Mail Server Ready:", testAccount.user);
-  return nodemailer.createTransport({
-    host: "smtp.ethereal.email",
-    port: 587,
-    secure: false,
-    auth: {
-      user: testAccount.user,
-      pass: testAccount.pass
-    }
-  });
-});
+// 2. EMAIL TRANSPORTER (Uses your Gmail App Password if configured in terminal, else Ethereal test inbox)
+const SENDER_EMAIL = process.env.SENDER_EMAIL || "jaleelbashag@apicalsoftsolution.com";
+const SENDER_APP_PASSWORD = process.env.SENDER_APP_PASSWORD || "";
 
-// 3. REGISTER STUDENT + SAVE IN SQL DB + SEND REGISTRATION EMAIL
+let transporter;
+if (SENDER_APP_PASSWORD) {
+  transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: SENDER_EMAIL, pass: SENDER_APP_PASSWORD }
+  });
+} else {
+  nodemailer.createTestAccount().then((testAccount) => {
+    transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: { user: testAccount.user, pass: testAccount.pass }
+    });
+  });
+}
+
+// 3. REGISTER STUDENT -> HASH PASSWORD -> SAVE IN SQL DB -> SEND EMAIL
 app.post("/api/register", (req, res) => {
   const { name, email, course, password } = req.body;
+  const hashed = hashPassword(password);
 
   db.run(
     "INSERT INTO users (name, email, password, role, course, status) VALUES (?, ?, ?, 'student', ?, 'Pending')",
-    [name, email.toLowerCase(), password, course],
+    [name, email.toLowerCase(), hashed, course],
     async function (err) {
       if (err) {
         return res.status(400).json({ error: "This email is already registered in the database." });
       }
 
       try {
-        const transporter = await transporterPromise;
         const info = await transporter.sendMail({
-          from: '"EduCore Smart LMS" <admissions@educore.edu>',
+          from: `"EduCore Smart LMS" <${SENDER_EMAIL}>`,
           to: email,
           subject: `Welcome to EduCore LMS — Registration Confirmed (${course})`,
           html: `
             <h2>Welcome to EduCore Smart LMS, ${name}!</h2>
-            <p>Your registration has been saved in our SQL database.</p>
+            <p>Your student account has been successfully registered.</p>
             <ul>
-              <li><strong>Email:</strong> ${email}</li>
-              <li><strong>Course:</strong> ${course}</li>
+              <li><strong>Registered Email:</strong> ${email}</li>
+              <li><strong>Enrolled Course:</strong> ${course}</li>
               <li><strong>Status:</strong> Pending Admin Approval</li>
             </ul>
-            <p>Sign in at <a href="http://localhost:3000">http://localhost:3000</a> to view your chapter PDFs.</p>
+            <p>Sign in at <a href="http://localhost:3000">http://localhost:3000</a> to access your course chapter PDFs.</p>
           `
         });
 
         const previewUrl = nodemailer.getTestMessageUrl(info);
-        console.log("Registration Email Sent! View inbox here:", previewUrl);
-
         res.json({
           message: `Registration saved & email sent to ${email}!`,
-          previewUrl
+          previewUrl: previewUrl || null
         });
       } catch (mailErr) {
-        res.json({ message: "Saved to database, email queued.", previewUrl: null });
+        res.json({
+          message: `Saved to database! (Email skipped: ${mailErr.message})`
+        });
       }
     }
   );
 });
 
-// 4. LOGIN
+// 4. LOGIN (VERIFIES HASHED PASSWORD)
 app.post("/api/login", (req, res) => {
   const { email, password, role } = req.body;
   db.get(
-    "SELECT * FROM users WHERE email = ? AND password = ? AND role = ?",
-    [email.toLowerCase(), password, role],
+    "SELECT * FROM users WHERE email = ? AND role = ?",
+    [email.toLowerCase(), role],
     (err, user) => {
-      if (!user) {
+      if (!user || !verifyPassword(password, user.password)) {
         return res.status(401).json({ error: `Invalid ${role} email or password.` });
       }
-      res.json({ user });
+      const { password: _, ...safeUser } = user;
+      res.json({ user: safeUser });
     }
   );
 });
 
-// 5. FORGOT PASSWORD -> SEND RESET EMAIL WITH LINK
+// 5. FORGOT PASSWORD -> SEND RESET LINK EMAIL
 app.post("/api/forgot-password", (req, res) => {
   const { email } = req.body;
   db.get("SELECT * FROM users WHERE email = ?", [email.toLowerCase()], (err, user) => {
@@ -126,9 +153,8 @@ app.post("/api/forgot-password", (req, res) => {
 
     db.run("UPDATE users SET resetToken = ? WHERE id = ?", [token, user.id], async () => {
       try {
-        const transporter = await transporterPromise;
         const info = await transporter.sendMail({
-          from: '"EduCore Smart LMS" <security@educore.edu>',
+          from: `"EduCore Smart LMS" <${SENDER_EMAIL}>`,
           to: user.email,
           subject: "EduCore LMS — Reset Your Password",
           html: `
@@ -136,25 +162,23 @@ app.post("/api/forgot-password", (req, res) => {
             <p>Hello <strong>${user.name}</strong>,</p>
             <p>Click the button below to change your EduCore LMS password:</p>
             <p><a href="${resetLink}" style="display:inline-block;padding:10px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">Change My Password</a></p>
-            <p>Or open this link directly:<br><a href="${resetLink}">${resetLink}</a></p>
+            <p>Or copy this link:<br><a href="${resetLink}">${resetLink}</a></p>
           `
         });
 
         const previewUrl = nodemailer.getTestMessageUrl(info);
-        console.log("Forgot Password Email Sent! View inbox here:", previewUrl);
-
         res.json({
           message: `Password reset email sent to ${user.email}!`,
-          previewUrl
+          previewUrl: previewUrl || null
         });
-      } catch (e) {
-        res.status(500).json({ error: "Could not send password reset email." });
+      } catch (mailErr) {
+        res.status(500).json({ error: `SMTP Error: ${mailErr.message}` });
       }
     });
   });
 });
 
-// 6. RESET PASSWORD FROM EMAIL LINK
+// 6. RESET PASSWORD FROM EMAIL LINK (STORES NEW HASHED PASSWORD)
 app.post("/api/reset-password", (req, res) => {
   const { email, token, newPassword } = req.body;
   db.get(
@@ -164,25 +188,31 @@ app.post("/api/reset-password", (req, res) => {
       if (!user) {
         return res.status(400).json({ error: "Invalid or expired reset link." });
       }
+      const hashedNew = hashPassword(newPassword);
       db.run(
         "UPDATE users SET password = ?, resetToken = NULL WHERE id = ?",
-        [newPassword, user.id],
+        [hashedNew, user.id],
         () => res.json({ message: "Password changed successfully! Sign in with your new password." })
       );
     }
   );
 });
 
-// 7. ADMIN FULL CRUD ENDPOINTS (CREATE, READ, UPDATE, DELETE)
+// 7. ADMIN FULL CRUD ENDPOINTS (NEVER EXPOSES RAW PASSWORD)
 app.get("/api/users", (req, res) => {
-  db.all("SELECT * FROM users", [], (err, rows) => res.json(rows || []));
+  db.all(
+    "SELECT id, name, email, role, department, course, status, attended, totalClasses FROM users",
+    [],
+    (err, rows) => res.json(rows || [])
+  );
 });
 
 app.post("/api/users", (req, res) => {
   const { name, email, role, department, password } = req.body;
+  const hashed = hashPassword(password);
   db.run(
     "INSERT INTO users (name, email, password, role, department, status) VALUES (?, ?, ?, ?, ?, 'Approved')",
-    [name, email.toLowerCase(), password, role, department],
+    [name, email.toLowerCase(), hashed, role, department],
     function (err) {
       if (err) return res.status(400).json({ error: "Email already exists in database." });
       res.json({ id: this.lastID });
@@ -192,6 +222,7 @@ app.post("/api/users", (req, res) => {
 
 app.put("/api/users/:id", (req, res) => {
   const { name, email, role, department, password, status, attended, totalClasses } = req.body;
+  const hashed = password ? hashPassword(password) : null;
   db.run(
     `UPDATE users SET
       name = COALESCE(?, name),
@@ -203,13 +234,30 @@ app.put("/api/users/:id", (req, res) => {
       attended = COALESCE(?, attended),
       totalClasses = COALESCE(?, totalClasses)
      WHERE id = ?`,
-    [name, email, role, department, password, status, attended, totalClasses, req.params.id],
+    [name, email, role, department, hashed, status, attended, totalClasses, req.params.id],
     () => res.json({ success: true })
   );
 });
 
 app.delete("/api/users/:id", (req, res) => {
   db.run("DELETE FROM users WHERE id = ?", [req.params.id], () => res.json({ success: true }));
+});
+
+// 8. SQLITE3 REGISTRATION COUNT & DATABASE SUMMARY
+app.get("/api/stats", (req, res) => {
+  db.get(
+    `SELECT 
+      COUNT(*) AS totalUsers,
+      SUM(CASE WHEN role = 'student' THEN 1 ELSE 0 END) AS totalStudents,
+      SUM(CASE WHEN role = 'trainer' THEN 1 ELSE 0 END) AS totalTrainers,
+      SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) AS totalAdmins
+     FROM users`,
+    [],
+    (err, stats) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(stats);
+    }
+  );
 });
 
 app.listen(3000, () => {

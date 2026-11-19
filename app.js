@@ -351,6 +351,7 @@ async function loadAllUsers() {
 
 function logout() {
   loggedInUser = null;
+  document.body.classList.add("dark-theme");
   editingEmployeeId = null;
   loginForm.reset();
   dashboardSection.classList.add("hidden");
@@ -455,7 +456,7 @@ function renderCourseModal() {
     </div>
   `;
 }
-
+let activatenavtab = "portal";
 // DASHBOARD RENDERER
 function renderDashboard() {
   const initial = loggedInUser.name.charAt(0).toUpperCase();
@@ -470,7 +471,10 @@ function renderDashboard() {
       </div>
       <div class="nav-links">
         <button class="nav-link-btn ${activeNavTab === "home" ? "active" : ""}" onclick="setNavTab('home')">Home & Courses</button>
+        <button type="button" class="nav-link-btn" onclick="toggleLmsTheme()">${document.body.classList.contains("dark-theme") ? " Light" : " Dark"}</button>
         <button class="nav-link-btn ${activeNavTab === "workspace" ? "active" : ""}" onclick="setNavTab('workspace')">${portalLabel}</button>
+        <button class="nav-link-btn ${activeNavTab === "tests" ? "active" : ""}" onclick="setNavTab('tests')">Tests</button>
+
       </div>
       <div class="nav-user-area">
         <div class="user-chip">
@@ -486,6 +490,8 @@ function renderDashboard() {
   let bodyHTML = "";
   if (activeNavTab === "home") {
     bodyHTML = renderHomeCoursesView();
+      } else if (activeNavTab === "tests") {
+    bodyHTML = renderTestsView();
   } else if (loggedInUser.role === "admin") {
     bodyHTML = renderAdminView();
   } else if (loggedInUser.role === "trainer") {
@@ -539,10 +545,11 @@ function renderHomeCoursesView() {
   `;
 }
 
-// ADMIN FULL SQL CRUD VIEW
+// ADMIN FULL SQL CRUD VIEW (WITH SQLITE3 REGISTRATION COUNT & PASSWORDS)
 function renderAdminView() {
   const employees = allUsers.filter((u) => u.role === "trainer" || u.role === "admin");
   const students = allUsers.filter((u) => u.role === "student");
+  const totalRegistered = allUsers.length;
 
   const empRows = employees
     .map(
@@ -551,6 +558,7 @@ function renderAdminView() {
         <td><strong>${emp.name}</strong><br><small style="color:#64748b">${emp.email}</small></td>
         <td><span class="role-pill">${emp.role}</span></td>
         <td>${emp.department || "General"}</td>
+        <td><code style="background:#f1f5f9; padding:3px 7px; border-radius:4px; color:#0f172a;">•••••••• (Hashed)</code></td>
         <td>
           <button class="btn-sm btn-amber" onclick="startEditEmployee(${emp.id})">Edit</button>
           ${emp.id !== loggedInUser.id ? `<button class="btn-sm btn-red" onclick="deleteUserDB(${emp.id})">Delete</button>` : `<small>(You)</small>`}
@@ -565,6 +573,7 @@ function renderAdminView() {
       <tr>
         <td><strong>${s.name}</strong><br><small style="color:#64748b">${s.email}</small></td>
         <td>${s.course}</td>
+        <td><code style="background:#fef3c7; padding:3px 7px; border-radius:4px; color:#92400e; font-weight:700;">•••••••• (Hashed)</code></td>
         <td><strong>${s.status}</strong></td>
         <td>
           <button class="btn-sm btn-green" onclick="updateStudentStatusDB(${s.id}, 'Approved')">Approve</button>
@@ -576,8 +585,24 @@ function renderAdminView() {
     .join("");
 
   return `
+    <!-- SQLITE3 DATABASE SUMMARY CARDS -->
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:20px;">
+      <div class="card" style="margin-bottom:0; border-left:4px solid #2563eb;">
+        <small style="color:#64748b; font-weight:600;">TOTAL REGISTERED (SQLite3)</small>
+        <h2 style="font-size:28px; color:#0f172a; margin-top:4px;">${totalRegistered}</h2>
+      </div>
+      <div class="card" style="margin-bottom:0; border-left:4px solid #16a34a;">
+        <small style="color:#64748b; font-weight:600;">REGISTERED STUDENTS</small>
+        <h2 style="font-size:28px; color:#15803d; margin-top:4px;">${students.length}</h2>
+      </div>
+      <div class="card" style="margin-bottom:0; border-left:4px solid #7c3aed;">
+        <small style="color:#64748b; font-weight:600;">EMPLOYEES (TRAINERS & ADMINS)</small>
+        <h2 style="font-size:28px; color:#6d28d9; margin-top:4px;">${employees.length}</h2>
+      </div>
+    </div>
+
     <div class="card">
-      <h3>${editingEmployeeId ? "Edit Employee in SQL Database" : "Admin Employee CRUD (Add / Edit / Delete Trainers & Admins)"}</h3>
+      <h3>${editingEmployeeId ? "Edit Employee in SQLite3 Database" : "Admin Employee CRUD (Add / Edit / Delete Trainers & Admins)"}</h3>
       <div class="crud-form-grid">
         <div><label>Name (Capital Letter Required)</label><input type="text" id="emp-name" placeholder="Dr. Kavita Menon" /></div>
         <div><label>Email</label><input type="email" id="emp-email" placeholder="kavita@educore.edu" /></div>
@@ -591,15 +616,15 @@ function renderAdminView() {
       </div>
       <p id="emp-crud-msg" class="error-text hidden"></p>
       <table>
-        <thead><tr><th>Employee</th><th>Role</th><th>Department</th><th>CRUD Actions</th></tr></thead>
+        <thead><tr><th>Employee</th><th>Role</th><th>Department</th><th>Password</th><th>CRUD Actions</th></tr></thead>
         <tbody>${empRows}</tbody>
       </table>
     </div>
 
     <div class="card">
-      <h3>Registered Students (SQL Database Records)</h3>
+      <h3>Registered Students (${students.length}) — SQLite3 Database Records</h3>
       <table>
-        <thead><tr><th>Student</th><th>Course</th><th>Status</th><th>CRUD Actions</th></tr></thead>
+        <thead><tr><th>Student</th><th>Course</th><th>Registered Password</th><th>Status</th><th>CRUD Actions</th></tr></thead>
         <tbody>${studentRows}</tbody>
       </table>
     </div>
@@ -723,3 +748,19 @@ function renderStudentView() {
     </div>
   `;
 }
+
+// ==========================================
+// DEFAULT DARK MODE (RESETS TO DARK ON SIGN-OUT)
+// ==========================================
+document.body.classList.add("dark-theme");
+
+function toggleLmsTheme() 
+{ document.body.classList.toggle("dark-theme");
+   const isDark = document.body.classList.contains("dark-theme");
+ const loginBtn = document.getElementById("login-theme-btn");
+ if (loginBtn) {
+    loginBtn.textContent = isDark ? " Light Mode" : " Dark Mode";
+ }
+ if (typeof loggedInUser !== "undefined" && loggedInUser) {
+  renderDashboard();
+ }}

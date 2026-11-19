@@ -674,3 +674,94 @@ input.invalid, select.invalid {
   margin-top: 10px;
   font-size: 13px;
 }
+/* DARK THEME OVERRIDES */
+body.dark-theme {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+body.dark-theme .pro-navbar {
+  background-color: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+
+body.dark-theme .pro-navbar h2,
+body.dark-theme .nav-user-area span {
+  color: #f8fafc;
+}
+
+body.dark-theme .nav-link-btn {
+  color: #cbd5e1;
+}
+
+body.dark-theme .nav-link-btn.active {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+body.dark-theme .card,
+body.dark-theme .auth-card {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+body.dark-theme h3,
+body.dark-theme h4,
+body.dark-theme strong {
+  color: #f8fafc;
+}
+
+body.dark-theme input,
+body.dark-theme select,
+body.dark-theme textarea {
+  background-color: #0f172a;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+body.dark-theme table th {
+  background-color: #0f172a;
+  color: #cbd5e1;
+}
+
+body.dark-theme table td {
+  border-color: #334155;
+  color: #e2e8f0;
+}
+/* LOGIN PANEL DARK MODE VISIBILITY FIX */
+body.dark-theme #auth-section,
+body.dark-theme .auth-right,
+body.dark-theme .login-panel,
+body.dark-theme .form-container {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+
+body.dark-theme #form-heading,
+body.dark-theme #auth-section h2,
+body.dark-theme #auth-section label {
+  color: #f8fafc !important;
+}
+
+body.dark-theme .role-tabs {
+  background-color: #0f172a;
+}
+
+body.dark-theme .role-tab {
+  color: #cbd5e1;
+}
+
+body.dark-theme .role-tab.active {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+body.dark-theme .sub-tab {
+  color: #cbd5e1;
+}
+
+body.dark-theme .sub-tab.active {
+  color: #60a5fa;
+  border-bottom-color: #60a5fa;
+}
