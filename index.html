@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore — Smart LMS</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- 1. AUTHENTICATION SECTION -->
+  <main id="auth-section" class="auth-wrapper">
+    <section class="auth-brand">
+      <span class="badge">Smart Campus Portal</span>
+      <h1>EduCore LMS</h1>
+      <p>Automated student registrations, real SMTP email delivery, SQL database persistence, and course chapter PDFs.</p>
+      <ul>
+        <li>✓ SQL Database storage for all users & courses</li>
+        <li>✓ Registration & Forgot Password email links</li>
+        <li>✓ Full Admin CRUD operations</li>
+      </ul>
+    </section>
+
+    <section class="auth-card">
+      <div class="role-tabs">
+        <button type="button" class="role-tab active" data-role="student">Student</button>
+        <button type="button" class="role-tab" data-role="trainer">Trainer</button>
+        <button type="button" class="role-tab" data-role="admin">Admin</button>
+      </div>
+
+      <div id="student-toggle" class="sub-tabs">
+        <button type="button" class="sub-tab active" data-mode="login">Login</button>
+        <button type="button" class="sub-tab" data-mode="register">New Student Registration</button>
+      </div>
+
+      <!-- A. SIGN IN FORM (With Forgot Password right next to Sign In) -->
+      <form id="login-form" novalidate>
+        <h2 id="form-heading">Student Login</h2>
+
+        <label for="login-email">Email Address</label>
+        <input type="email" id="login-email" placeholder="e.g., student@educore.edu" />
+        <small id="err-login-email" class="field-error"></small>
+
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label for="login-password">Password</label>
+          <a href="#" id="forgot-link" style="font-size:12px; color:#2563eb; font-weight:600; text-decoration:none; margin-bottom:6px;">Forgot Password?</a>
+        </div>
+        <input type="password" id="login-password" placeholder="Enter password" />
+        <small id="err-login-password" class="field-error"></small>
+
+        <div id="login-error" class="error-text hidden"></div>
+        <button type="submit" class="btn-primary">Sign In</button>
+      </form>
+
+      <!-- B. NEW STUDENT REGISTRATION FORM -->
+      <form id="register-form" class="hidden" novalidate>
+        <h2>Student Registration</h2>
+
+        <label for="reg-name">Full Name (Must include a Capital letter)</label>
+        <input type="text" id="reg-name" placeholder="e.g., Ananya Rao" />
+        <small id="err-reg-name" class="field-error"></small>
+
+        <label for="reg-email">Email Address</label>
+        <input type="email" id="reg-email" placeholder="e.g., ananya@gmail.com" />
+        <small id="err-reg-email" class="field-error"></small>
+
+        <label for="reg-course">Select Course</label>
+        <select id="reg-course">
+          <option value="">-- Choose a Course --</option>
+          <option value="Full-Stack Web Development">Full-Stack Web Development</option>
+          <option value="Data Science & Python">Data Science & Python</option>
+          <option value="Cloud Computing">Cloud Computing</option>
+          <option value="UI/UX Product Design">UI/UX Product Design</option>
+        </select>
+        <small id="err-reg-course" class="field-error"></small>
+
+        <label for="reg-password">Create Password (Capital, Small, Number & Special Char)</label>
+        <input type="password" id="reg-password" placeholder="e.g., Student@123" />
+        <small id="err-reg-password" class="field-error"></small>
+
+        <label for="reg-confirm">Confirm Password</label>
+        <input type="password" id="reg-confirm" placeholder="Re-enter password" />
+        <small id="err-reg-confirm" class="field-error"></small>
+
+        <button type="submit" id="reg-submit-btn" class="btn-primary">Register & Send Email</button>
+      </form>
+
+      <!-- C. FORGOT PASSWORD FORM -->
+      <form id="forgot-form" class="hidden" novalidate>
+        <h2>Forgot Password</h2>
+        <p style="font-size:13px; color:#64748b; margin-bottom:14px;">Enter your registered email ID to receive a password reset link.</p>
+
+        <label for="forgot-email">Registered Email Address</label>
+        <input type="email" id="forgot-email" placeholder="e.g., ananya@gmail.com" />
+        <small id="err-forgot-email" class="field-error"></small>
+
+        <div id="forgot-msg" class="success-text hidden"></div>
+        <button type="submit" id="forgot-submit-btn" class="btn-primary">Send Reset Email</button>
+        <button type="button" id="back-to-login-btn" class="btn-secondary" style="width:100%; margin-top:10px;">← Back to Sign In</button>
+      </form>
+
+      <!-- D. SET NEW PASSWORD FORM (Opened from Reset Email Link) -->
+      <form id="reset-form" class="hidden" novalidate>
+        <h2>Change Password</h2>
+        <p id="reset-email-label" style="font-size:13px; color:#2563eb; font-weight:600; margin-bottom:14px;"></p>
+
+        <label for="reset-new-pass">New Password (Capital, Small, Number & Special Char)</label>
+        <input type="password" id="reset-new-pass" placeholder="e.g., NewPass@123" />
+        <small id="err-reset-pass" class="field-error"></small>
+
+        <label for="reset-confirm-pass">Confirm New Password</label>
+        <input type="password" id="reset-confirm-pass" placeholder="Re-enter new password" />
+        <small id="err-reset-confirm" class="field-error"></small>
+
+        <div id="reset-msg" class="error-text hidden"></div>
+        <button type="submit" class="btn-primary">Save New Password</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- 2. DASHBOARD SECTION -->
+  <section id="dashboard-section" class="dashboard-wrapper hidden"></section>
+
+  <script src="app.js"></script>
+</body>
+</html>
